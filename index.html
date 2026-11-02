@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Guardian: The Competition</title>
+    <style>
+        :root { --primary: #6c5ce7; --bg: #f0f2f5; --card: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; overflow-x: hidden; }
+        .container { max-width: 1400px; margin: auto; position: relative; }
+        
+        /* Updated Layout for dynamic N-clinicians */
+        .main-layout { display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; align-items: flex-start; }
+        .user-column { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 340px; }
+        
+        .user-card { background: var(--card); padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+        .pet-sprite { width: 240px; height: 240px; object-fit: contain; margin: 10px auto; display: block; cursor: pointer; transition: transform 0.2s; }
+        .pet-sprite:hover { transform: scale(1.05); }
+        
+        .status-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.7em; margin-bottom: 10px; text-transform: uppercase; }
+        .status-happy { background: #55efc4; color: #00b894; }
+        .status-tired { background: #ffeaa7; color: #fdcb6e; }
+        .status-sick { background: #fab1a0; color: #e17055; }
+        .status-coma { background: #a29bfe; color: #6c5ce7; }
+        .status-disappointed { background: #dfe6e9; color: #636e72; }
+        
+        .progress-container { background: #eee; height: 25px; border-radius: 12px; margin: 15px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.8s ease; }
+        .backlog-section { margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ccc; text-align: left; font-size: 0.85em; }
+        .backlog-btn { background: #e0dbff; border: 1px solid var(--primary); padding: 4px 8px; border-radius: 4px; cursor: pointer; margin: 2px; }
+        
+        .shop-box { background: #2d3436; color: white; padding: 20px; border-radius: 15px; margin-top: 40px; text-align: center; position: relative; }
+        .item-wrapper { position: relative; display: inline-block; }
+        .item-btn { background: #6c5ce7; border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; margin: 5px; font-weight: bold; }
+        .item-btn:disabled { background: #555; opacity: 0.6; }
+        .tooltip-text { visibility: hidden; width: 160px; background-color: #fffa65; color: #333; text-align: center; border-radius: 10px; padding: 10px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -80px; opacity: 0; transition: opacity 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-weight: bold; border: 2px solid #333; font-size: 0.9em; line-height: 1.2; }
+        .item-wrapper:hover .tooltip-text { visibility: visible; opacity: 1; }
+        
+        .action-container-row { display: flex; gap: 6px; margin-bottom: 5px; }
+        button.action-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; background: var(--primary); color: white; font-weight: bold; cursor: pointer; position: relative; }
+        button.undo-btn { width: 45px; padding: 12px 0; border: none; border-radius: 8px; background: #ffeaa7; color: #d63031; font-weight: bold; cursor: pointer; font-size: 0.9em; }
+        button.undo-btn:hover { background: #fab1a0; }
+        .claim-alert { background: #feca57; color: #2d3436; padding: 10px; border-radius: 8px; margin: 10px 0; font-weight: bold; cursor: pointer; border: 2px solid #ff9f43; font-size: 0.9em; }
+        
+        .bubble-container { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 5px; justify-content: flex-end; position: relative; }
+        .thought-bubble-wrapper { position: relative; max-width: 85%; display: inline-block; }
+        .thought-bubble { background: #fff; border: 2px solid #2d3436; border-radius: 15px; padding: 8px 12px; font-style: italic; font-size: 0.85em; font-weight: bold; box-shadow: 3px 3px 0px rgba(0,0,0,0.1); color: #2d3436; text-align: center; }
+        .thought-bubble-wrapper::after, .thought-bubble-wrapper::before { content: ''; position: absolute; background: #fff; border: 2px solid #2d3436; border-radius: 50%; }
+        .thought-bubble-wrapper::after { width: 7px; height: 7px; bottom: -10px; left: 48%; }
+        .thought-bubble-wrapper::before { width: 4px; height: 4px; bottom: -15px; left: 46%; }
+        
+        .emoji-badge { position: absolute; top: -12px; right: -12px; font-size: 1.4em; background: transparent; border: none; padding: 0; z-index: 5; filter: drop-shadow(1px 2px 1px rgba(0,0,0,0.2)); cursor: pointer; transition: transform 0.1s; }
+        .emoji-badge:hover { transform: scale(1.2); }
+        .reply-bubble { background: #e0dbff; border: 2px solid #6c5ce7; border-radius: 12px; padding: 6px 10px; max-width: 80%; font-size: 0.8em; font-weight: 600; color: #2d3436; box-shadow: 2px 2px 0px rgba(0,0,0,0.05); word-break: break-word; text-align: center; position: relative; white-space: pre-wrap; margin-top: 5px; }
+
+        .control-panel-box { background: #ffffff; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 15px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #e2e8f0; }
+        .control-row { display: flex; gap: 6px; }
+        .msg-input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85em; }
+        .msg-btn { background: #2d3436; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: bold; }
+        .msg-btn:hover { background: #4b5563; }
+        .reply-accent-btn { background: #6c5ce7; }
+        .reply-accent-btn:hover { background: #5649c0; }
+        
+        .emoji-selector { display: flex; gap: 4px; margin-top: 2px; align-items: center; justify-content: center; flex-wrap: wrap;}
+        .emoji-mini-btn { background: none; border: none; font-size: 1.1em; cursor: pointer; transition: transform 0.1s; padding: 2px; }
+        .emoji-mini-btn:hover { transform: scale(1.3); }
+
+        .sidebar { background: #ffffff; border-radius: 15px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .sidebar h4 { margin-top: 0; color: #2d3436; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .task-item { background: #f8fafc; padding: 8px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #94a3b8; font-size: 0.8em; position: relative; }
+        .task-item.overdue { border-left-color: #ef4444; background: #fef2f2; }
+        .task-item strong { display: block; color: #334155; font-size: 1.05em; margin-bottom: 2px; }
+        .task-item span { color: #64748b; font-size: 0.9em; }
+        .task-del-btn { position: absolute; top: 4px; right: 4px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1em; }
+        .task-del-btn:hover { color: #ef4444; }
+        .task-form { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e2e8f0; }
+        .task-form input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8em; }
+        .task-form button { background: #6c5ce7; color: white; border: none; padding: 6px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8em; }
+
+        .shop-nav-btn { background: #4b5563; border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1em; margin: 0 10px; vertical-align: middle; }
+        .shop-nav-btn:hover { background: #6b7280; }
+        .shop-nav-btn:disabled { background: #1f2937; opacity: 0.3; cursor: not-allowed; }
+        .shop-header-container { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; }
+
+        #animationCanvasOverlay { position: fixed; top: 25%; left: -250px; width: 180px; height: 180px; z-index: 9999; pointer-events: none; display: none; }
+        #animationCanvasOverlay img { width: 100%; height: 100%; object-fit: contain; }
+        @keyframes crossScreenFly { 0% { left: -250px; } 100% { left: calc(100vw + 250px); } }
+        #confettiCanvas { position: fixed; top:0; left:0; width:100vw; height:100vh; z-index:9998; pointer-events:none; }
+
+        .hof-box { background: #ffffff; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 20px; margin-top: 20px; border: 1px solid #e2e8f0; text-align: center; }
+        .hof-title-container { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; border-bottom: 2px dashed #e2e8f0; padding-bottom: 10px; }
+        .hof-grid { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; min-height: 260px; }
+        .hof-card { background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 12px; width: 260px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; /* 🌟 Spaces out name tag and image cleanly */gap: 12px; }
+        .hof-card img { width: 100%;             /* 🌟 Expand image to fill full card width */max-height: 200px;       /* 🌟 Allow tall/square pics to expand up to 200px high */object-fit: contain;     /* 🌟 Keeps proper proportions without stretching or cropping */margin: 0 auto;  display: block; }
+        .hof-name-tag { font-family: 'Trebuchet MS', sans-serif; font-size: 1.2em; font-weight: bold; color: #4f46e5; margin-bottom: 4px; word-break: normal; overflow-wrap: break-word; }
+        .hof-input-row { display: flex; flex-direction: column; gap: 4px; }
+        .hof-txt-in { font-size: 0.75em; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; }
+        .hof-sub-btn { background: #2d3436; color: white; border: none; padding: 4px; border-radius: 4px; font-size: 0.7em; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<canvas id="confettiCanvas"></canvas>
+<div id="animationCanvasOverlay"><img id="animatedDragonflyFrame" src="" alt="Celebrating!"></div>
+
+<div class="container">
+    <h1 style="text-align:center;">🐾 Note Guardians</h1>
+    <h3 id="weekHeading" style="text-align:center; color: #6c5ce7;">Syncing with Sheet...</h3>
+
+    <!-- Dynamic Container for all Clinicians -->
+    <div id="usersContainer" class="main-layout"></div>
+
+    <div class="shop-box">
+        <div class="shop-header-container">
+            <button id="prevShopBtn" class="shop-nav-btn" onclick="navigateShop(-1)">◀</button>
+            <h3 id="shopTitle" style="margin: 0; min-width: 320px;">🎁 Weekly Reward Draft</h3>
+            <button id="nextShopBtn" class="shop-nav-btn" onclick="navigateShop(1)">▶</button>
+        </div>
+        <div id="shopItems"></div>
+    </div>
+
+    <div class="hof-box">
+        <div class="hof-title-container">
+            <button id="prevHofBtn" class="shop-nav-btn" onclick="navigateHof(-1)">◀</button>
+            <h3 id="hofTitle" style="margin:0; min-width:280px; color:#2d3436;">🏆 Note Guardians Hall of Fame</h3>
+            <button id="nextHofBtn" class="shop-nav-btn" onclick="navigateHof(1)">▶</button>
+        </div>
+        <div id="hofDisplayShelf" class="hof-grid"></div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbyAPSvmmBvpYmBcjUa1AhU3q8cIP-WlHCSwynSjWynBG6ED2bawA8DXl7fhagVdlrNu/exec";
+    
+    // Configuration to support custom prefixes for specific clinicians without renaming existing files
+    const CLINICIAN_CONFIG = {
+        "Michael": { flyPrefix: "deerfly" },
+        "Jacinta": { flyPrefix: "dragonfly" }
+    };
+    // Default config used for Jodie and anyone added in the future:
+    const DEFAULT_CONFIG = { flyPrefix: "fly" }; 
+
+    function normalizeItemName(str) {
+        if (!str) return "";
+        return str.replace(/[\uFE00-\uFE0F]/g, "").trim();
+    }
+
+    const RAW_DESCRIPTIONS = {
+        "Animal Onesie": "🐾 Complete with soft ears and a tail that wiggles.",
+        "Sharp Suit": "💼 Looking slick, professional, and ready for business.",
+        "Graphic T-Shirt": "👕 Features a retro pixel-art icon on the front.",
+        "Fluffy Dressing Gown": "🛌 Soft, cozy, and perfect for lazy mornings.",
+        "Superhero Cape": "🦸 Swishes dramatically in the wind, even indoors.",
+        "Punk Rock Outfit": "🎸 Loaded with safety pins, studs, and attitude.",
+        "Over-sized Yellow Raincoat": "🧥 Complete with little matching boots.",
+        "Overalls": "👖 We'll make a farmer of you yet.",
+        "Cardboard Armor": "🛡️ For the brave (but fragile) hero.",
+        "Wizard Costume": "🧙‍♂️ Comes with a pointy hat and starry robes.",
+        "🐭Wind-up Mouse/Rubber Duck🦆": "🐭🦆 Zips around in circles.",
+        "🪗Toy Musical Instrument": "🪗 Makes delightful (if slightly off-key) tunes.",
+        "🦖Squeaky Dino": "🦖 Makes a high-pitched mewp sound. Squeaks loudest at 3:00 AM.",
+        "🧶Infinite Yarn": "🧶 A cozy ball of wool that never runs out.",
+        "🫧Bubble Blower": "🫧 Floats iridescent bubbles all around the room.",
+        "🪀Fidget Spinner": "🪀 Keeps busy little hands occupied for hours. (or choose your own other fidget)",
+        "🧸Mini-Me Plushie": "🧸 A huggably soft, pint-sized version of themselves.",
+        "🦹Action Figure": "🦹 Complete with kung-fu grip and heroic pose.",
+        "🐾Pocket Pet": "🐾 A tiny, loyal friend that fits right in their pocket.",
+        "🎲Mini Board Game": "🎲 Roll the dice and try not to flip the board.",
+        "📖Story Book": "📖 Filled with magical tales and colorful pictures.",
+        "🧩Unfinished Lego Set": "🧩 Only three steps left, but where did that last piece go?",
+        "🏮Glowing Jellyfish Lamp": "🏮 Hovers slightly off the ground.",
+        "🚂Miniature Train": "🚂 Just big enough for them to sit in.",
+        "🫧Heart Bubbles": "🫧 Creates floating heart-shaped bubbles.",
+        "🎮Handheld Console": "🎮 A tiny device for your pet to play.",
+        "🎠Wooden Rocking Horse": "🎠 Perfectly sized for a ride.",
+        "✨Bouncy Star Ball🏐": "✨ Leaves a trail of glitter.",
+        "Star-shaped Watermelon": "🍉 Tastes like summer.",
+        "Firefly Honey": "🍯 Glows in the dark.",
+        "Rainbow Macaron": "🍪 A different flavor in every bite.",
+        "Strawberry Milk Box": "🥤 Complete with a tiny straw.",
+        "Heart-shaped Jam Cookie": "🍓 Leaves a trail of crumbs.",
+        "Moon-Cheese": "🧀 Mildly cratered and very savory.",
+        "Sparkling Soda": "🍹 Causes the pet to emit tiny sparkles.",
+        "☁️Cotton Candy Cloud": "☁️ Occasionally drifts upward. Tastes like sweet blue skies and melts instantly on your tongue.",
+        "🌰Lucky Acorn": "🌰 Polished to a shine and guaranteed to bring good fortune.",
+        "🌻Giant Sunflower Seed": "🌻 Bigger than your head and packed with delicious crunch.",
+        "🍝Infinite Spaghetti": "🍝 No matter how much you twirl, the bowl never empties.",
+        "🍨Ice Cream Sundae": "🍨 Topped with a cherry that somehow stays cold forever.",
+        "🥞Stack of Pancakes": "🥞 Dripping with maple syrup and fluffy beyond belief.",
+        "🍿Movie Popcorn": "🍿 Perfectly buttered, salty, and endlessly snackable.",
+        "🧋Boba Tea": "🧋 Sweet, icy goodness with chewy tapioca pearls at the bottom.",
+        "🍣Sushi": "🍣 A tiny, bite-sized work of culinary art.",
+        "🍩Doughnuts": "🍩 Warm, glazed to perfection, and covered in rainbow sprinkles.",
+        "🌋Lava Lamp": "🌋 Groovy floating blobs that are hypnotically soothing to watch.",
+        "🪵Mossy Log": "🪵 Looks like damp nature, but feels like sitting on a cloud.",
+        "🔮Terrarium Globe": "🔮 A tiny, self-sustaining magical forest trapped in glass.",
+        "☁️Shag Cloud Rug": "☁️ So soft it feels like stepping on soft morning mist.",
+        "🪴Talking Plant": "🪴 Always offers unsolicited but surprisingly good advice.",
+        "🌌Space Projector": "🌌 Turns your ceiling into a swirling, starlit galaxy.",
+        "🖼️Poster": "🖼️ Swaps its artwork depending on what mood you're in.",
+        "🧩Completed Lego Set": "🧩 Built with incredible patience and locked with zero missing pieces.",
+        "🍄Mushroom Stool": "🍄 A cozy place to sit.",
+        "Teacup Bed": "☕ Lined with silk pillows.",
+        "Ghost Plant": "🌿 A translucent, friendly-looking fern.",
+        "Record Player": "🎶 Plays lo-fi beats for sleeping.",
+        "✨Fairy Lights": "🏮 Drapes over anything they own.",
+        "Beanbag Chair": "💺 Takes the exact shape of the pet.",
+        "Framed Polaroid": "📸 Of the pet and its owner!",
+        "No-prick Cactus": "🌵 It’s actually quite fuzzy.",
+        "Cloud Rug": "☁️ Feels like walking on air.",
+        "Stardust": "✨ Change the pet's color temporarily.",
+        "Antique Key": "🔑 No one knows what it opens yet.",
+        "Ever-Burning Candle": "🕯️ Smells like vanilla and old books.",
+        "Message in a Bottle": "🍾 Contains a random compliment.",
+        "Pocket Sun": "☀️ Keeps the pet warm on rainy days.",
+        "Crystal Geode": "💎 Sparkles when the pet is happy.",
+        "Phoenix Feather": "🪶 Warm to the touch.",
+        "Compass that points to snacks": "🧭 Always reliable.",
+        "Enchanted Umbrella": "☂️ Floats over them automatically.",
+        "Golden Ticket": "🎟️ A pass to a future Secret Garden.",
+        "🦡": "A baby armadillo friend curled in a ball.",
+        "🐯": "An adorable tiger cub.",
+        "🦔": "A cute hoglet (baby hedgehog) who wants to be your friend.",
+        "🦖": "A baby dinosaur. Cute but fiersome.",
+        "🦊": "A sweet little kit, who loves to brush the legs of their friends.",
+        "🐌": "A whimsical snail who leaves a glittery trail and tells wonderful stories.",
+        "🐧": "A baby penguin. Fluffy, floofy and ready for fun.",
+        "🦅": "A magestic eagle who will keep watch over your adorable pet.",
+        "🐢": "A wise old tortoise. The very picture of refinement.",
+        "🦇": "A baby bat, who loves to hang around in the day, and party at night."
+    };
+
+    const DESCRIPTIONS = {};
+    Object.keys(RAW_DESCRIPTIONS).forEach(key => {
+        DESCRIPTIONS[normalizeItemName(key)] = RAW_DESCRIPTIONS[key];
+    });
+
+    let gameState = null;
+    let viewingWeek = null;
+    let viewingHofPage = 1; 
+    let localCompletedCache = {}; 
+    let renderedUsers = []; 
+
+    async function syncData() {
+        try {
+            const response = await fetch(API_URL);
+            gameState = await response.json();
+            if(!viewingWeek) viewingWeek = gameState.currentWeek;
+            
+            // Check completed status to trigger celebrations
+            gameState.users.forEach(userName => {
+                const userObj = gameState.userData[userName];
+                const hist = userObj.history.find(h => Number(h.week) === Number(gameState.currentWeek));
+                if(hist) {
+                    let prevCache = localCompletedCache[userName] !== undefined ? localCompletedCache[userName] : null;
+                    if(prevCache !== null && hist.completed >= hist.total && prevCache < hist.total) {
+                        triggerFullCelebration(userName);
+                    }
+                    localCompletedCache[userName] = hist.completed;
+                }
+            });
+
+            renderUsers(); // Builds layout if new users are found
+            updateUI();    // Populates data
+        } catch (e) { console.log("Sync failed", e); }
+    }
+
+    function renderUsers() {
+        if (!gameState || !gameState.users) return;
+        const container = document.getElementById('usersContainer');
+        
+        // Only redraw the DOM if the list of users changed
+        if (renderedUsers.length !== gameState.users.length) {
+            let html = "";
+            gameState.users.forEach(userName => {
+                const safeId = userName.replace(/[^a-zA-Z0-9]/g, '');
+                
+                // Build dropdown options for replying to OTHERS
+                let replyOptions = gameState.users
+                    .filter(u => u !== userName)
+                    .map(u => `<option value="${u}">${u}</option>`)
+                    .join('');
+
+                html += `
+                <div class="user-column" id="col_${safeId}">
+
+                    <!-- User Card: Pet and Stats -->
+                    <div class="user-card">
+                        <div class="bubble-container">
+                            <div class="thought-bubble-wrapper" id="thoughtWrapper_${safeId}">
+                                <div id="bubble_${safeId}" class="thought-bubble">💭 ...</div>
+                                <div id="badgeDisplay_${safeId}" class="emoji-badge" title="Click to remove reaction" onclick="clearReaction('${userName}')"></div>
+                            </div>
+                            <div id="replyBox_${safeId}" class="reply-bubble" style="display:none;"></div>
+                        </div>
+                        <img id="pet_${safeId}" class="pet-sprite" src="" onclick="clickToFly('${userName}')" onerror="if (this.src.indexOf('.jpg') !== -1) { this.src = this.src.replace('.jpg', '.png'); } else if (this.src.indexOf('.png') !== -1) { this.src = this.src.replace('.png', '.jpg'); }">
+                        <div id="badge_${safeId}" class="status-badge status-happy">Status: Happy</div>
+                        <h3>${userName}</h3>
+                        <div class="progress-container"><div id="bar_${safeId}" class="progress-fill"></div></div>
+                        <p id="txt_${safeId}">0 / 0 (0%)</p>
+                        
+                        <div class="action-container-row">
+                            <button id="btnAction_${safeId}" class="action-btn" onclick="addNote('${userName}', gameState.currentWeek)">+1 Current Note</button>
+                            <button class="undo-btn" title="Undo accidental note click" onclick="removeNote('${userName}', gameState.currentWeek)">-1</button>
+                        </div>
+                        
+                        <div id="claim_${safeId}"></div>
+                        <div class="backlog-section">
+                            <strong>Overdue Notes:</strong>
+                            <div id="history_${safeId}">None! ✨</div>
+                        </div>
+                        <p id="inv_${safeId}" style="font-size: 0.8em; color: #666; margin: 5px 0 0 0;">🎒 Items: None</p>
+                    </div>
+
+                    <!-- Console: Chat and React -->
+                    <div class="control-panel-box">
+                        <strong>✍️ ${userName}'s Console</strong>
+                        <div class="control-row">
+                            <input type="text" id="input_${safeId}" class="msg-input" placeholder="New thought...">
+                            <button class="msg-btn" onclick="saveMessage('${userName}')">Say</button>
+                        </div>
+                        
+                        <div style="font-size: 0.85em; color: #666; margin-top:5px;">Target: 
+                            <select id="replyTarget_${safeId}" class="msg-input" style="padding:4px;">${replyOptions}</select>
+                        </div>
+                        
+                        <div class="control-row">
+                            <input type="text" id="replyIn_${safeId}" class="msg-input" placeholder="Reply to target...">
+                            <button class="msg-btn reply-accent-btn" onclick="saveReply('${userName}')">Reply</button>
+                        </div>
+                        <div class="emoji-selector">
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','❤️')">❤️</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','💔')">💔</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','😊')">😊</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','😮')">😮</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','😢')">😢</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','😫')">😫</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','😔')">😔</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','🤔')">🤔</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','😍')">😍</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','😎')">😎</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','🙌')">🙌</button>
+                            <button class="emoji-mini-btn" onclick="sendReaction('${userName}','💩')">💩</button>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar: Tasks -->
+                    <div class="sidebar">
+                        <h4>📋 ${userName}'s Tasks</h4>
+                        <div id="taskList_${safeId}"></div>
+                        <div class="task-form">
+                            <input type="text" id="taskIn_${safeId}" placeholder="Task description...">
+                            <input type="date" id="dateIn_${safeId}">
+                            <button onclick="addTask('${userName}')">Add Task</button>
+                        </div>
+                    </div>
+
+                </div>
+                `;
+            });
+            container.innerHTML = html;
+            renderedUsers = [...gameState.users];
+        }
+    }
+
+    function updateUI() {
+        if(!gameState || !gameState.users) return;
+
+        gameState.users.forEach(userName => {
+            const safeId = userName.replace(/[^a-zA-Z0-9]/g, '');
+            const userObj = gameState.userData[userName];
+            const folder = userName.toLowerCase();
+            
+            const current = userObj.history.find(h => Number(h.week) === Number(gameState.currentWeek));
+            if (current) {
+                const perc = (Number(current.completed) / Number(current.total)) * 100 || 0;
+                document.getElementById('bar_' + safeId).style.width = perc + "%";
+                document.getElementById('txt_' + safeId).innerText = `${current.completed} / ${current.total} (${perc.toFixed(0)}%)`;
+            }
+
+            const allItems = userObj.history.map(h => h.claimedItem).filter(i => i);
+            document.getElementById('inv_' + safeId).innerText = "🎒 Items: " + (allItems.join(", ") || "None");
+
+            let hasOverdueTask = false;
+            let taskHTML = "";
+            let now = new Date();
+            now.setHours(0,0,0,0);
+
+            userObj.history.sort((a,b) => Number(a.week) - Number(b.week)).forEach(h => {
+                if(h.tasks && h.tasks.length > 0) {
+                    h.tasks.forEach((t, localIndex) => {
+                        let d = new Date(t.due);
+                        d.setHours(0,0,0,0);
+                        let isOverdue = d < now;
+                        if(isOverdue) hasOverdueTask = true;
+                        taskHTML += `
+                            <div class="task-item ${isOverdue ? 'overdue' : ''}">
+                                <button class="task-del-btn" onclick="deleteTask('${userName}', ${h.week}, ${localIndex})">×</button>
+                                <strong>${t.desc}</strong>
+                                <span>📅 Due: ${d.getDate()}/${d.getMonth()+1} (Wk ${h.week})</span>
+                            </div>`;
+                    });
+                }
+            });
+            document.getElementById('taskList_' + safeId).innerHTML = taskHTML || "<p style='opacity:0.5; font-size:0.85em;'>No manual tasks! ☀️</p>";
+
+            let finalStatusText = userObj.status;
+            let imageToUse = userObj.status;
+
+            if (hasOverdueTask) {
+                if (userObj.status === "happy") {
+                    finalStatusText = "disappointed";
+                    imageToUse = "disappointed";
+                } else {
+                    finalStatusText = userObj.status + "/disappointed";
+                    if (userObj.status === "tired") imageToUse = "disappointed";
+                }
+            }
+
+            document.getElementById('pet_' + safeId).src = `${folder}/${imageToUse}.jpg?v=${Date.now()}`;
+            document.getElementById('badge_' + safeId).innerText = "Status: " + finalStatusText;
+            document.getElementById('badge_' + safeId).className = `status-badge status-${hasOverdueTask && userObj.status === 'happy' ? 'disappointed' : userObj.status}`;
+
+            const thoughtWrapper = document.getElementById('thoughtWrapper_' + safeId);
+            if (userObj.message) {
+                document.getElementById('bubble_' + safeId).innerText = userObj.message;
+                thoughtWrapper.style.display = "inline-block";
+            } else {
+                thoughtWrapper.style.display = "none";
+            }
+
+            const replyBox = document.getElementById('replyBox_' + safeId);
+            if(userObj.reply) {
+                replyBox.innerText = userObj.reply;
+                replyBox.style.display = "block";
+            } else {
+                replyBox.style.display = "none";
+            }
+
+            const badgeEl = document.getElementById('badgeDisplay_' + safeId);
+            badgeEl.innerText = userObj.emoji ? userObj.emoji : "";
+            badgeEl.style.display = userObj.emoji ? "block" : "none";
+
+            let backHTML = "";
+            let claimAlert = "";
+            userObj.history.sort((a,b) => Number(a.week) - Number(b.week)).forEach(h => {
+                const isDone = Number(h.completed) >= Number(h.total);
+                const wNum = Number(h.week);
+                
+                if (!isDone && wNum < Number(gameState.currentWeek)) {
+                    let d = new Date(h.date);
+                    backHTML += `<button class="backlog-btn" onclick="addNote('${userName}', ${wNum})">Week ${wNum} (${d.getDate()}/${d.getMonth()+1}) (+1) ${h.completed}/${h.total}</button><br>`;
+                }
+                
+                if (isDone && !h.claimedItem && (wNum === Number(gameState.currentWeek) || wNum === Number(gameState.currentWeek) - 1)) {
+                    claimAlert += `<div class="claim-alert" onclick="setShop(${wNum})">🎁 Claim Week ${wNum} Reward!</div>`;
+                }
+            });
+            document.getElementById('history_' + safeId).innerHTML = backHTML || "All caught up! ✨";
+            document.getElementById('claim_' + safeId).innerHTML = claimAlert;
+        });
+
+        const catList = ["Wearables", "Toys", "Snacks", "Decor", "Friends"];
+        const currentCat = catList[(Number(gameState.currentWeek) - 1) % 5] || "Wearables";
+        
+        const header = document.getElementById('weekHeading');
+        header.innerText = `Current Week ${gameState.currentWeek}: ${currentCat}`;
+        header.style.color = "#2d3436"; 
+
+        document.getElementById('prevShopBtn').disabled = (Number(viewingWeek) <= 1);
+        document.getElementById('nextShopBtn').disabled = (Number(viewingWeek) >= Number(gameState.currentWeek));
+
+        renderShop();
+        renderWallOfFame(); 
+    }
+
+    // Dynamic Shop Claim validation mapping
+    function renderShop() {
+        if(!gameState || !gameState.weeklyDrafts) return;
+        const catList = ["Wearables", "Toys", "Snacks", "Decor", "Friends"];
+        const viewCat = catList[(Number(viewingWeek) - 1) % 5];
+        document.getElementById('shopTitle').innerText = `🎁 Week ${viewingWeek} Reward Draft (${viewCat})`;
+
+        const weeklyItems = gameState.weeklyDrafts[viewingWeek] || [];
+        if (weeklyItems.length === 0) {
+            document.getElementById('shopItems').innerHTML = "<p style='opacity:0.5;'>Loading week draft items list...</p>";
+            return;
+        }
+
+        let weekClaims = [];
+        gameState.users.forEach(userName => {
+            let hist = gameState.userData[userName].history.find(h => Number(h.week) === Number(viewingWeek));
+            if(hist && hist.claimedItem) weekClaims.push(hist.claimedItem);
+        });
+
+        let html = "";
+        weeklyItems.forEach(item => {
+            const isSold = weekClaims.includes(item);
+            const normalizedCurrentItem = normalizeItemName(item);
+            const tooltip = DESCRIPTIONS[normalizedCurrentItem] || "A special item!";
+            
+            html += `
+                <div class="item-wrapper">
+                    <button class="item-btn" ${isSold ? 'disabled' : ''} onclick="claim('${item}')">
+                        ${isSold ? item + ' (Claimed)' : item}
+                    </button>
+                    <span class="tooltip-text">${tooltip}</span>
+                </div>`;
+        });
+        document.getElementById('shopItems').innerHTML = html;
+    }
+
+    function renderWallOfFame() {
+        if (!gameState || !gameState.wallOfFame) return;
+        const totalItems = gameState.wallOfFame.length;
+        const itemsPerPage = 4;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+        
+        if (viewingHofPage > totalPages) viewingHofPage = totalPages;
+        if (viewingHofPage < 1) viewingHofPage = 1;
+
+        document.getElementById('prevHofBtn').disabled = (viewingHofPage <= 1);
+        document.getElementById('nextHofBtn').disabled = (viewingHofPage >= totalPages);
+        document.getElementById('hofTitle').innerText = `🏆 Hall of Fame (Page ${viewingHofPage}/${totalPages})`;
+
+        const startIndex = (viewingHofPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const visiblePets = gameState.wallOfFame.slice(startIndex, endIndex);
+
+        let html = "";
+        if(visiblePets.length === 0) {
+            html = "<p style='opacity:0.5; font-size:0.9em; padding:20px;'>The Wall of Fame is currently peaceful and empty. Retire a pet to immortalize them! 👑</p>";
+        } else {
+            visiblePets.forEach(pet => {
+                const folder = (pet.user || '').toLowerCase().trim();
+                const imageName = (pet.image || '').trim();
+                let displaySection = "";
+                
+                if (pet.name) {
+                    displaySection = `<div class="hof-name-tag">${pet.name}</div>`;
+                } else {
+                    displaySection = `
+                        <div class="hof-input-row">
+                            <input type="text" id="hofIn${pet.rowID}" class="hof-txt-in" placeholder="Name pet...">
+                            <button class="hof-sub-btn" onclick="submitHofName(${pet.rowID})">Submit</button>
+                        </div>`;
+                }
+
+                html += '<div class="hof-card">' +
+                    displaySection +
+                    '<img src="' + folder + '/' + imageName + '" alt="Hero" onerror="if(this.src.indexOf(\'.jpg\')!==-1){this.src=this.src.replace(\'.jpg\',\'.png\');}else if(this.src.indexOf(\'.png\')!==-1){this.src=this.src.replace(\'.png\',\'.jpg\');}">' +
+                    '</div>';
+            });
+        }
+        document.getElementById('hofDisplayShelf').innerHTML = html;
+    }
+
+    function navigateHof(dir) { viewingHofPage += dir; renderWallOfFame(); }
+    function setShop(weekID) { viewingWeek = weekID; updateUI(); }
+    function navigateShop(dir) {
+        if(!gameState) return;
+        const targetWeek = Number(viewingWeek) + dir;
+        if(targetWeek >= 1 && targetWeek <= Number(gameState.currentWeek)) {
+            viewingWeek = targetWeek;
+            updateUI();
+        }
+    }
+
+    async function submitHofName(rowID) {
+        const inputEl = document.getElementById('hofIn' + rowID);
+        const nameText = inputEl ? inputEl.value.trim() : "";
+        if (!nameText) return alert("Give your retired hero a proper name!");
+
+        const localMatch = gameState.wallOfFame.find(p => p.rowID === rowID);
+        if(localMatch) localMatch.name = nameText;
+        renderWallOfFame();
+
+        await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "updateHOFName", rowID: rowID, newName: nameText })
+        });
+    }
+
+    function checkAllNotesClean(userName) {
+        if(!gameState || !gameState.userData[userName]) return false;
+        return gameState.userData[userName].history.every(h => Number(h.completed) >= Number(h.total));
+    }
+
+    function clickToFly(userName) {
+        if(checkAllNotesClean(userName)) {
+            animateFlightSequence(userName);
+        } else {
+            alert("Finish all your remaining notes across all weeks first to unlock manual flight mode! 📋✨");
+        }
+    }
+
+    function triggerFullCelebration(userName) {
+        animateFlightSequence(userName);
+        spawnFullscreenConfetti();
+    }
+
+    function animateFlightSequence(userName) {
+        const stage = document.getElementById('animationCanvasOverlay');
+        const frameImg = document.getElementById('animatedDragonflyFrame');
+        const config = CLINICIAN_CONFIG[userName] || DEFAULT_CONFIG;
+        const folder = `${userName.toLowerCase()}-fly`;
+        const filePrefix = config.flyPrefix;
+        
+        let currentFrame = 1; 
+        const maxFrames = 19;
+        
+        frameImg.src = `${folder}/${filePrefix}${currentFrame}.png`;
+        stage.style.display = 'block';
+        stage.style.animation = 'crossScreenFly 5s linear forwards';
+        
+        const frameInterval = setInterval(() => {
+            currentFrame++;
+            if (currentFrame > maxFrames) currentFrame = 1; 
+            frameImg.src = `${folder}/${filePrefix}${currentFrame}.png`;
+        }, 75);
+
+        setTimeout(() => {
+            clearInterval(frameInterval);
+            stage.style.display = 'none';
+            stage.style.animation = '';
+        }, 5000);
+    }
+
+    async function addNote(userName, weekID) {
+        const userHist = gameState.userData[userName].history;
+        const weekData = userHist.find(h => Number(h.week) === Number(weekID));
+        if(!weekData) return;
+        
+        weekData.completed++;
+        updateUI();
+        
+        const safeId = userName.replace(/[^a-zA-Z0-9]/g, '');
+        const btnEl = document.getElementById('btnAction_' + safeId);
+        if(btnEl) {
+            const rect = btnEl.getBoundingClientRect();
+            spawnTargetBurstConfetti(rect.left + (rect.width / 2), rect.top + (rect.height / 2));
+        }
+        
+        if(Number(weekID) === Number(gameState.currentWeek) && weekData.completed === weekData.total) {
+            triggerFullCelebration(userName);
+        }
+        
+        await fetch(API_URL, { method: 'POST', body: JSON.stringify({ user: userName, weekID, newCount: weekData.completed }) });
+    }
+
+    async function removeNote(userName, weekID) {
+        if(!gameState) return;
+        const userHist = gameState.userData[userName].history;
+        const weekData = userHist.find(h => Number(h.week) === Number(weekID));
+        if(!weekData || Number(weekData.completed) <= 0) return; 
+        
+        weekData.completed--;
+        updateUI();
+        await fetch(API_URL, { method: 'POST', body: JSON.stringify({ user: userName, weekID, newCount: weekData.completed }) });
+    }
+
+    async function saveMessage(userName) {
+        const safeId = userName.replace(/[^a-zA-Z0-9]/g, '');
+        const msgText = document.getElementById('input_' + safeId).value.trim();
+        if (!msgText) return;
+
+        gameState.userData[userName].message = msgText;
+        gameState.userData[userName].reply = ""; 
+        gameState.userData[userName].emoji = ""; 
+        updateUI();
+        document.getElementById('input_' + safeId).value = ""; 
+
+        await fetch(API_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({ user: userName, weekID: gameState.currentWeek, newMessage: msgText }) 
+        });
+    }
+
+    // Now dynamically targets the selected clinician from the dropdown
+    async function saveReply(sourceUser) {
+        const sourceSafeId = sourceUser.replace(/[^a-zA-Z0-9]/g, '');
+        const targetUser = document.getElementById('replyTarget_' + sourceSafeId).value;
+        const replyText = document.getElementById('replyIn_' + sourceSafeId).value.trim();
+        if(!replyText || !targetUser) return;
+
+        const formattedReply = `[${sourceUser}] ${replyText}`;
+        const existingReply = gameState.userData[targetUser].reply || "";
+    
+        // NEW: If a reply already exists, add a line break (\n) before stacking the new one
+        const combinedReply = existingReply ? existingReply + "\n" + formattedReply : formattedReply;
+
+        gameState.userData[targetUser].reply = combinedReply;
+        updateUI();
+        document.getElementById('replyIn_' + sourceSafeId).value = "";
+
+        await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ user: targetUser, weekID: gameState.currentWeek, newReply: combinedReply })
+        });
+    }
+
+    async function sendReaction(sourceUser, emojiChar) {
+        const sourceSafeId = sourceUser.replace(/[^a-zA-Z0-9]/g, '');
+        const targetUser = document.getElementById('replyTarget_' + sourceSafeId).value;
+        if(!targetUser) return;
+
+        gameState.userData[targetUser].emoji = emojiChar;
+        updateUI();
+        await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ user: targetUser, weekID: gameState.currentWeek, newEmoji: emojiChar })
+        });
+    }
+
+    async function clearReaction(userName) {
+        if (!gameState || !gameState.userData[userName].emoji) return;
+        gameState.userData[userName].emoji = "";
+        updateUI();
+        await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ user: userName, weekID: gameState.currentWeek, newEmoji: "" })
+        });
+    }
+
+    async function addTask(userName) {
+        const safeId = userName.replace(/[^a-zA-Z0-9]/g, '');
+        const desc = document.getElementById('taskIn_' + safeId).value.trim();
+        const due = document.getElementById('dateIn_' + safeId).value;
+        if(!desc || !due) return alert("Fill in task details and due date!");
+
+        const currentWeekData = gameState.userData[userName].history.find(h => Number(h.week) === Number(gameState.currentWeek));
+        if(!currentWeekData.tasks) currentWeekData.tasks = [];
+        
+        currentWeekData.tasks.push({ desc, due });
+        updateUI();
+
+        document.getElementById('taskIn_' + safeId).value = "";
+        document.getElementById('dateIn_' + safeId).value = "";
+
+        await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ user: userName, weekID: gameState.currentWeek, newTasks: JSON.stringify(currentWeekData.tasks) })
+        });
+    }
+
+    async function deleteTask(userName, sourceWeek, targetIndex) {
+        const targetWeekData = gameState.userData[userName].history.find(h => Number(h.week) === Number(sourceWeek));
+        if(!targetWeekData || !targetWeekData.tasks) return;
+
+        targetWeekData.tasks.splice(targetIndex, 1);
+        updateUI();
+
+        await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ user: userName, weekID: sourceWeek, newTasks: JSON.stringify(targetWeekData.tasks) })
+        });
+    }
+
+    async function claim(itemName) {
+        let options = gameState.users.join(" / ");
+        const userName = prompt(`Who is claiming?\n(Type exactly: ${options})`).trim();
+        if (!gameState.userData[userName]) return alert("Name not recognized!");
+        
+        const weekData = gameState.userData[userName].history.find(h => Number(h.week) === Number(viewingWeek));
+        if (Number(weekData.completed) < Number(weekData.total)) {
+            return alert("Finish that week's notes first!");
+        }
+        
+        const resp = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ user: userName, weekID: viewingWeek, newItem: itemName }) });
+        const result = await resp.text();
+        if(result === "ALREADY_TAKEN") alert("Too slow! Your opponent already claimed this one.");
+        
+        syncData();
+    }
+
+    // --- Confetti Engine remains completely unchanged ---
+    const canvas = document.getElementById("confettiCanvas");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    const colors = ["#6c5ce7", "#ff7675", "#fdcb6e", "#00b894", "#0984e3", "#e84393", "#fd79a8"];
+    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    function createParticle(x, y, isFullCelebration) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = isFullCelebration ? (Math.random() * 3 + 2) : (Math.random() * 5 + 4);
+        return { x: x, y: y, size: Math.random() * 6 + 4, color: colors[Math.floor(Math.random() * colors.length)], vx: Math.cos(angle) * speed, vy: isFullCelebration ? (Math.random() * -3 - 1) : (Math.sin(angle) * speed) - 2, gravity: isFullCelebration ? 0.12 : 0.25, opacity: 1, rotation: Math.random() * 360, rotationSpeed: Math.random() * 4 - 2 };
+    }
+    function spawnFullscreenConfetti() { for (let i = 0; i < 150; i++) particles.push(createParticle(Math.random() * canvas.width, Math.random() * -50, true)); }
+    function spawnTargetBurstConfetti(x, y) { for (let i = 0; i < 30; i++) particles.push(createParticle(x, y, false)); }
+    function updateParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += p.gravity; p.rotation += p.rotationSpeed; p.opacity -= 0.015;
+            if (p.opacity <= 0 || p.y > canvas.height || p.x < 0 || p.x > canvas.width) { particles.splice(i, 1); continue; }
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((p.rotation * Math.PI) / 180); ctx.globalAlpha = p.opacity; ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); ctx.restore();
+        }
+        requestAnimationFrame(updateParticles);
+    }
+    requestAnimationFrame(updateParticles);
+
+    syncData();
+    setInterval(syncData, 30000);
+</script>
+</body>
+</html>
