@@ -372,7 +372,7 @@
                             </div>
                             <div id="replyBox_${safeId}" class="reply-bubble" style="display:none;"></div>
                         </div>
-                        <img id="pet_${safeId}" class="pet-sprite" src="" onclick="clickToFly('${userName}')" onerror="if(!this.dataset.retried){ this.dataset.retried = true; this.src = this.src.replace('.jpg', '.png'); } else { this.onerror = null; }">
+                        <img id="pet_${safeId}" class="pet-sprite" src="" onclick="clickToFly('${userName}')" onload="this.dataset.validExt = this.src.includes('.png') ? '.png' : '.jpg';" onerror="handlePetImageFallback(this)">
                         <div id="badge_${safeId}" class="status-badge status-happy">Status: Happy</div>
                         <h3>${userName}</h3>
                         <div class="progress-container"><div id="bar_${safeId}" class="progress-fill"></div></div>
@@ -496,7 +496,10 @@
                 }
             }
 
-            document.getElementById('pet_' + safeId).src = `${folder}/${imageToUse}.jpg?v=${Date.now()}`;
+            const petImg = document.getElementById('pet_' + safeId);
+delete petImg.dataset.swapped;
+const knownExt = petImg.dataset.validExt || '.png';
+petImg.src = `${folder}/${imageToUse}${knownExt}?v=${Date.now()}`;
             document.getElementById('badge_' + safeId).innerText = "Status: " + finalStatusText;
             document.getElementById('badge_' + safeId).className = `status-badge status-${hasOverdueTask && userObj.status === 'happy' ? 'disappointed' : userObj.status}`;
 
@@ -914,6 +917,18 @@ function resetAdoptionForm() {
   document.getElementById("petConceptInput").value = "";
 }
 
+    function handlePetImageFallback(img) {
+  if (img.src.includes('.jpg') && !img.dataset.swapped) {
+    img.dataset.swapped = "true";
+    img.src = img.src.replace('.jpg', '.png');
+  } else if (img.src.includes('.png') && !img.dataset.swapped) {
+    img.dataset.swapped = "true";
+    img.src = img.src.replace('.png', '.jpg');
+  } else {
+    img.onerror = null;
+  }
+}
+    
 async function requestPreviews() {
   const concept = document.getElementById("petConceptInput").value.trim();
   selectedClinician = document.getElementById("adoptClinicianSelect").value;
