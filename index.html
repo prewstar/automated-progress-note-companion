@@ -840,19 +840,40 @@ petImg.src = `${folder}/${imageToUse}${knownExt}?v=${Date.now()}`;
 
     async function claim(itemName) {
         let options = gameState.users.join(" / ");
-        const userName = prompt(`Who is claiming?\n(Type exactly: ${options})`).trim();
-        if (!gameState.userData[userName]) return alert("Name not recognized!");
+        const userName = prompt(`Who is claiming?\n(Type exactly: ${options})`);
+        if (!userName || !userName.trim()) return;
+        const cleanUser = userName.trim();
+
+        if (!gameState.userData[cleanUser]) return alert("Name not recognized!");
         
-        const weekData = gameState.userData[userName].history.find(h => Number(h.week) === Number(viewingWeek));
+        const weekData = gameState.userData[cleanUser].history.find(h => Number(h.week) === Number(viewingWeek));
         if (Number(weekData.completed) < Number(weekData.total)) {
             return alert("Finish that week's notes first!");
         }
         
-        const resp = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ user: userName, weekID: viewingWeek, newItem: itemName }) });
-        const result = await resp.text();
-        if(result === "ALREADY_TAKEN") alert("Too slow! Your opponent already claimed this one.");
-        
-        syncData();
+        // Visual feedback while generating sprite
+        const shopTitle = document.getElementById('shopTitle');
+        const originalTitle = shopTitle.innerText;
+        shopTitle.innerText = `⏳ Equipping ${itemName} onto ${cleanUser}'s pet... (~15s)`;
+
+        try {
+            const resp = await fetch(API_URL, { 
+                method: 'POST', 
+                body: JSON.stringify({ user: cleanUser, weekID: viewingWeek, newItem: itemName }) 
+            });
+            const result = await resp.text();
+            
+            if (result === "ALREADY_TAKEN") {
+                alert("Too slow! Your opponent already claimed this one.");
+            } else {
+                alert(`✨ ${cleanUser} claimed ${itemName}! The pet's new equipped portrait has been generated and updated.`);
+            }
+        } catch (err) {
+            alert("Error claiming item: " + err.message);
+        } finally {
+            shopTitle.innerText = originalTitle;
+            syncData();
+        }
     }
 
     // --- Confetti Engine remains completely unchanged ---
