@@ -96,6 +96,82 @@
         .hof-input-row { display: flex; flex-direction: column; gap: 4px; }
         .hof-txt-in { font-size: 0.75em; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; }
         .hof-sub-btn { background: #2d3436; color: white; border: none; padding: 4px; border-radius: 4px; font-size: 0.7em; font-weight: bold; cursor: pointer; }
+
+        .adoption-btn {background: linear-gradient(135deg, #ff7675, #d63031); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;}
+
+.adoption-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 780px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  text-align: center;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.candidate-card {
+  border: 3px solid #f1f2f6;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.candidate-card:hover {
+  border-color: #0984e3;
+  transform: scale(1.03);
+}
+
+.candidate-card img {
+  width: 100%;
+  border-radius: 8px;
+  aspect-ratio: 1/1;
+  object-fit: cover;
+  display: block;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #0984e3;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
     </style>
 </head>
 <body>
@@ -104,8 +180,11 @@
 <div id="animationCanvasOverlay"><img id="animatedDragonflyFrame" src="" alt="Celebrating!"></div>
 
 <div class="container">
-    <h1 style="text-align:center;">🐾 Note Guardians</h1>
-    <h3 id="weekHeading" style="text-align:center; color: #6c5ce7;">Syncing with Sheet...</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <h1 style="margin: 0;">🐾 Note Guardians</h1>
+        <button class="adoption-btn" onclick="openAdoptionModal()">🐾 Adopt Pet</button>
+    </div>
+    <h3 id="weekHeading" style="text-align:center; color: #6c5ce7; margin-top: 5px;">Syncing with Sheet...</h3>
 
     <!-- Dynamic Container for all Clinicians -->
     <div id="usersContainer" class="main-layout"></div>
@@ -802,6 +881,162 @@
 
     syncData();
     setInterval(syncData, 30000);
+
+    let currentConcept = "";
+let selectedClinician = "";
+
+function openAdoptionModal() {
+  const modal = document.getElementById("adoptionModal");
+  const select = document.getElementById("adoptClinicianSelect");
+  
+  // Populate clinician dropdown dynamically from players list
+  select.innerHTML = "";
+  const players = ["Michael", "Jacinta", "Jodie"];
+  players.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+
+  resetAdoptionForm();
+  modal.style.display = "flex";
+}
+
+function closeAdoptionModal() {
+  document.getElementById("adoptionModal").style.display = "none";
+}
+
+function resetAdoptionForm() {
+  document.getElementById("stepInput").style.display = "block";
+  document.getElementById("stepLoading").style.display = "none";
+  document.getElementById("stepChoices").style.display = "none";
+  document.getElementById("petConceptInput").value = "";
+}
+
+async function requestPreviews() {
+  const concept = document.getElementById("petConceptInput").value.trim();
+  selectedClinician = document.getElementById("adoptClinicianSelect").value;
+
+  if (!concept) {
+    alert("Please enter a pet concept!");
+    return;
+  }
+
+  currentConcept = concept;
+  document.getElementById("stepInput").style.display = "none";
+  document.getElementById("stepLoading").style.display = "block";
+  document.getElementById("loadingStatusText").textContent = "Dreaming up 3 candidates in their custom worlds...";
+
+  try {
+    // Note: Use text/plain to avoid CORS preflight options issues with Apps Script
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "getPreviews",
+        concept: currentConcept
+      })
+    });
+
+    const res = await response.json();
+    if (!res.success) throw new Error(res.error || "Failed to generate candidates");
+
+    renderCandidates(res.candidates);
+  } catch (err) {
+    alert("Generation error: " + err.message);
+    resetAdoptionForm();
+  }
+}
+
+function renderCandidates(candidates) {
+  const container = document.getElementById("previewContainer");
+  container.innerHTML = "";
+
+  candidates.forEach(cand => {
+    const card = document.createElement("div");
+    card.className = "candidate-card";
+    card.innerHTML = `
+      <img src="data:image/png;base64,${cand.base64}" alt="Pet Candidate" />
+      <button class="adoption-btn" style="margin-top: 10px; width: 100%;" onclick="confirmAdoption()">Adopt This Pet</button>
+    `;
+    container.appendChild(card);
+  });
+
+  document.getElementById("stepLoading").style.display = "none";
+  document.getElementById("stepChoices").style.display = "block";
+}
+
+async function confirmAdoption() {
+  document.getElementById("stepChoices").style.display = "none";
+  document.getElementById("stepLoading").style.display = "block";
+  document.getElementById("loadingStatusText").textContent = `Generating all 5 emotion sprites for ${selectedClinician} & committing to GitHub... (Takes ~30-45s)`;
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "adoptPet",
+        userName: selectedClinician,
+        concept: currentConcept
+      })
+    });
+
+    const res = await response.json();
+    if (!res.success) throw new Error(res.error || "Failed to finalize adoption");
+
+    alert(`🎉 Success! ${selectedClinician} has officially adopted their new pet! All 5 sprites have been generated and committed to GitHub.`);
+    closeAdoptionModal();
+    
+    // Refresh page or trigger data fetch so sprites update
+    setTimeout(() => { location.reload(); }, 2000);
+  } catch (err) {
+    alert("Adoption error: " + err.message);
+    document.getElementById("stepLoading").style.display = "none";
+    document.getElementById("stepChoices").style.display = "block";
+  }
+}
 </script>
+    <!-- Adoption Center Modal -->
+<div id="adoptionModal" class="modal-backdrop" style="display: none;">
+  <div class="modal-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2 style="margin: 0;">🐾 Pet Adoption Sanctuary</h2>
+      <button onclick="closeAdoptionModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+    </div>
+    
+    <p style="color: #636e72; margin-top: 0;">Design a new pet companion. Our magical artists will dream up 3 options immersed in their own world!</p>
+    
+    <div id="stepInput">
+      <div style="margin-bottom: 16px; text-align: left;">
+        <label style="font-weight: bold; display: block; margin-bottom: 6px;">Select Clinician:</label>
+        <select id="adoptClinicianSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px;">
+          <!-- Populated by JS -->
+        </select>
+      </div>
+
+      <div style="margin-bottom: 16px; text-align: left;">
+        <label style="font-weight: bold; display: block; margin-bottom: 6px;">Pet Concept / Appearance:</label>
+        <input type="text" id="petConceptInput" placeholder="e.g. tiny emerald dragon with mossy wings in an enchanted forest" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; box-sizing: border-box;" />
+      </div>
+
+      <button onclick="requestPreviews()" class="adoption-btn" style="width: 100%; padding: 12px; font-size: 16px;">
+        ✨ Conjure 3 Pet Choices
+      </button>
+    </div>
+
+    <div id="stepLoading" style="display: none;">
+      <div class="spinner"></div>
+      <p id="loadingStatusText">Dreaming up your candidates... (Takes ~15-20s)</p>
+    </div>
+
+    <div id="stepChoices" style="display: none;">
+      <h3>Choose Your Companion</h3>
+      <div id="previewContainer" class="preview-grid"></div>
+      <button onclick="resetAdoptionForm()" style="background: #dfe6e9; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Try Different Concept</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
