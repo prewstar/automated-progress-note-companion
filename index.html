@@ -985,7 +985,10 @@ async function requestPreviews() {
   }
 }
 
+let currentCandidates = [];
+
 function renderCandidates(candidates) {
+  currentCandidates = candidates; // Store candidates so we can reference their prompts
   const container = document.getElementById("previewContainer");
   container.innerHTML = "";
 
@@ -994,7 +997,7 @@ function renderCandidates(candidates) {
     card.className = "candidate-card";
     card.innerHTML = `
       <img src="data:image/png;base64,${cand.base64}" alt="Pet Candidate" />
-      <button class="adoption-btn" style="margin-top: 10px; width: 100%;" onclick="confirmAdoption()">Adopt This Pet</button>
+      <button class="adoption-btn" style="margin-top: 10px; width: 100%;" onclick="confirmAdoption(${cand.id})">Adopt This Style</button>
     `;
     container.appendChild(card);
   });
@@ -1003,7 +1006,11 @@ function renderCandidates(candidates) {
   document.getElementById("stepChoices").style.display = "block";
 }
 
-async function confirmAdoption() {
+async function confirmAdoption(candidateId) {
+  // Find the exact detailed prompt the user selected
+  const chosenCand = currentCandidates.find(c => c.id === candidateId);
+  const chosenPrompt = chosenCand.prompt;
+
   document.getElementById("stepChoices").style.display = "none";
   document.getElementById("stepLoading").style.display = "block";
   document.getElementById("loadingStatusText").textContent = `Generating all 5 emotion sprites for ${selectedClinician} & committing to GitHub... (Takes ~30-45s)`;
@@ -1015,17 +1022,15 @@ async function confirmAdoption() {
       body: JSON.stringify({
         action: "adoptPet",
         userName: selectedClinician,
-        concept: currentConcept
+        chosenPrompt: chosenPrompt // Sending the FULL paragraph to save to the sheet
       })
     });
 
     const res = await response.json();
     if (!res.success) throw new Error(res.error || "Failed to finalize adoption");
 
-    alert(`🎉 Success! ${selectedClinician} has officially adopted their new pet! All 5 sprites have been generated and committed to GitHub.`);
+    alert(`🎉 Success! ${selectedClinician} has officially adopted their new pet! Please wait a few minutes for the change to occur`);
     closeAdoptionModal();
-    
-    // Refresh page or trigger data fetch so sprites update
     setTimeout(() => { location.reload(); }, 2000);
   } catch (err) {
     alert("Adoption error: " + err.message);
